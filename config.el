@@ -14,6 +14,7 @@
                          ("elpa" . "https://elpa.gnu.org/packages/")))
 
 (add-to-list 'exec-path "/Applications/CMake.app/Contents/bin")
+(add-to-list 'exec-path "/Users/thony/.nix-profile/bin")
 (setq sql-postgres-program "/opt/homebrew/opt/libpq/bin/psql")
 
 (setq sql-port 12432) ;; Default MySQL port - Postgres Local
