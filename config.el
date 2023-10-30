@@ -45,11 +45,12 @@
 
 ;; If you use `org' and don'trwant your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
-(setq org-directory "~/git/roam/")
+(setq org-directory "~/git/roam")
 (after! org
-  (setq org-agenda-files '("~/git/roam/*"
-                           "~/git/roam/todo.org"
-                           "~/git/roam/daily/*")))
+  (setq org-agenda-files '("~/git/roam/*.org"
+                           "~/git/roam/agenda.org"
+                           "~/git/roam/inbox.org"
+                           "~/git/roam/daily/*.org")))
 ;;
 ;; Set projectile discover directory
 (setq projectile-project-search-path '(("~/git" . 1)))
@@ -191,6 +192,18 @@
           org-roam-ui-open-on-start t))
 
 ;; Org Capture
+
+;; Capture to Inbox
+(defun my/org-roam-capture-inbox ()
+  (interactive)
+  (org-roam-capture- :node (org-roam-node-create)
+                     :templates '(("i" "Inbox" plain "* TODO %<%Y-%m-%d>: %?"
+                                  :if-new (file+head "inbox.org" "#+title: Inbox\n")))))
+(map! :leader
+      :desc "org-roam-gtd-inbox"
+      "n r c" #'my/org-roam-capture-inbox)
+
+;; Capture Helpers
 (defun my/delete-capture-frame (&rest _)
   "Delete frame with its name frame-parameter set to \"capture\"."
   (if (equal "capture" (frame-parameter nil 'name))
@@ -202,14 +215,15 @@
   (interactive)
   (require 'cl-lib)
   (select-frame-by-name "capture")
-  (delete-other-windows)
   (cl-letf (((symbol-function 'switch-to-buffer-other-window) #'switch-to-buffer))
     (condition-case err
-        (org-roam-dailies-capture-today)
+      (my/org-roam-capture-inbox)
       ;; "q" signals (error "Abort") in `org-capture'
       ;; delete the newly created frame in this scenario.
       (user-error (when (string= (cadr err) "Abort")
-                    (delete-frame))))))
+                    (delete-frame)))))
+  (delete-other-windows)
+  )
 
 ;; Org Presentations
 (defun presentation-setup ()
