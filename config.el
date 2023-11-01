@@ -47,11 +47,8 @@
 ;; change `org-directory'. It must be set before org loads!
 (setq org-directory "~/git/roam")
 (after! org
-  (setq org-agenda-files '("~/git/roam/*.org"
-                           "~/git/roam/agenda.org"
-                           "~/git/roam/inbox.org"
-                           "~/git/roam/daily/*.org")))
-;;
+  (setq org-agenda-files (directory-files-recursively "~/git/roam/" "\\.org$")))
+
 ;; Set projectile discover directory
 (setq projectile-project-search-path '(("~/git" . 1)))
 
