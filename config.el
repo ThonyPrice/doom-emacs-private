@@ -222,6 +222,19 @@
   (delete-other-windows)
   )
 
+;; GTD Agenda View
+(setq org-agenda-custom-commands
+'(("g" "GTD Tasks"
+	((tags-todo
+	  "Next"
+	  ((org-agenda-files '("~/git/roam/next.org"))
+	   (org-agenda-overriding-header "Next")))
+	 (tags-todo
+	  "Inbox"
+	  ((org-agenda-files '("~/git/roam/inbox.org"))
+	   (org-agenda-overriding-header "Inbox")))
+	 (org-todo-list)))))
+
 ;; Org Presentations
 (defun presentation-setup ()
   ;; Hide the mode line
