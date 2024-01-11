@@ -302,3 +302,17 @@
 ;; Debugger
 (after! dap-mode
   (setq dap-python-debugger 'debugpy))
+
+(with-eval-after-load 'ox
+  (require 'ox-hugo))
+
+(defun my/org-roam-export-all ()
+  (interactive)
+  (dolist (org-file (directory-files-recursively org-roam-directory "\.org$"))
+    (with-current-buffer (find-file org-file)
+      (message (format "[build] Exporting %s" org-file))
+      (org-hugo-export-wim-to-md :all-subtrees nil nil nil))))
+
+(map! :leader
+      :desc "org-roam-export-all"
+      "n h e" #'my/org-roam-export-all)
