@@ -13,13 +13,20 @@
                          ("org" . "https://orgmode.org/elpa/")
                          ("elpa" . "https://elpa.gnu.org/packages/")))
 
-(add-to-list 'exec-path "/Applications/CMake.app/Contents/bin")
 (add-to-list 'exec-path "/Users/thony/.nix-profile/bin")
-(setq sql-postgres-program "/opt/homebrew/opt/libpq/bin/psql")
 
-(setq sql-port 12432) ;; Default MySQL port - Postgres Local
-(setq sql-port 12433) ;; Default MySQL port - Postgres Staging
-(setq sql-port 12434) ;; Default MySQL port - Postgres Production
+;; Aid Magit knowing what terminal to run git in,
+;; See: https://github.com/magit/magit/issues/4209#issuecomment-1698136735
+(setenv "TERM" "xterm-kitty")
+
+;; Copilot setup - Accept completion from copilot, to company
+(use-package! copilot
+  :hook (prog-mode . copilot-mode)
+  :bind (:map copilot-completion-map
+              ("<tab>" . 'copilot-accept-completion)
+              ("TAB" . 'copilot-accept-completion)
+              ("C-TAB" . 'copilot-accept-completion-by-word)
+              ("C-<tab>" . 'copilot-accept-completion-by-word)))
 
 ;; doom exposes five (optional) variables for controlling fonts in Doom. Here
 ;; are the three important ones:
@@ -29,9 +36,9 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "JetBrains Mono" :size 13)
-      doom-variable-pitch-font (font-spec :family "JetBrains Mono" :size 13)
-      doom-big-font (font-spec :family "JetBrains Mono" :size 24))
+(setq doom-font (font-spec :family "FiraCode Nerd Font Mono" :size 14)
+      doom-variable-pitch-font (font-spec :family "FiraCode Nerd Font Mono" :size 14)
+      doom-big-font (font-spec :family "FiraCode Nerd Font Mono" :size 24))
 (after! doom-themes
   (setq doom-themes-enable-bold t
         doom-themes-enable-italic t))
@@ -45,11 +52,40 @@
 
 ;; If you use `org' and don'trwant your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
-(setq org-directory "~/git/roam")
+(setq org-directory "~/git/org")
 (after! org
-  (setq org-agenda-files (directory-files-recursively "~/git/roam/" "\\.org$")))
+  (setq org-agenda-files (directory-files-recursively "~/git/org/" "\\.org$"))
+  (setq org-todo-keywords
+        '((sequence
+           "TODO(t)"  ; A task that needs doing & is ready to do
+           "NEXT(n)"  ; A task that should be done next
+           "PROJ(p)"  ; A project, which usually contains other tasks
+           "LOOP(r)"  ; A recurring task
+           "STRT(s)"  ; A task that is in progress
+           "WAIT(w)"  ; Something external is holding up this task
+           "HOLD(h)"  ; This task is paused/on hold because of me
+           "IDEA(i)"  ; An unconfirmed and unapproved task or notion
+           "|"
+           "DONE(d)"  ; Task successfully completed
+           "KILL(k)") ; Task was cancelled, aborted, or is no longer applicable
+          (sequence
+           "[ ](T)"   ; A task that needs doing
+           "[-](S)"   ; Task is in progress
+           "[?](W)"   ; Task is being held up or paused
+           "|"
+           "[X](D)")) ; Task was completed
+        org-todo-keyword-faces
+        '(("[-]"  . +org-todo-active)
+          ("STRT" . +org-todo-active)
+          ("[?]"  . +org-todo-onhold)
+          ("WAIT" . +org-todo-onhold)
+          ("HOLD" . +org-todo-onhold)
+          ("PROJ" . +org-todo-project)
+          ("KILL" . +org-todo-cancel))))
 
-;; Set projectile discover directory
+
+;; Projectile
+(setq projectile-switch-project-action #'projectile-dired)
 (setq projectile-project-search-path '(("~/git" . 1)))
 
 ;; Set up code review tooling
@@ -60,36 +96,20 @@
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
 (setq display-line-numbers-type 'relative)
 
-;; Set frame, window, and buffer styles
-(add-to-list 'default-frame-alist '(internal-border-width . 7))
-(set-window-buffer nil (current-buffer))
+(modify-all-frames-parameters
+ '((right-divider-width . 8)
+   (internal-border-width . 8)))
+(dolist (face '(window-divider
+                window-divider-first-pixel
+                window-divider-last-pixel))
+  (face-spec-reset-face face)
+  (set-face-foreground face (face-attribute 'default :background)))
+
 (setq fringe-mode 'left-only)
 
 ;; Fix MacOS Swedish keyboard layout
 (setq mac-option-modifier nil
       mac-command-modifier 'meta)
-
-;; Format TS buffers on save
-(setenv "NODE_PATH" "/opt/homebrew/lib/node_modules")
-(setq-hook! 'typescript-mode-hook +format-with 'prettier)
-
-;; Projectile
-(setq projectile-switch-project-action #'projectile-dired)
-
-;; Dired
-(use-package dired-single)
-
-; (use-package dired
-;   :ensure nil
-;   :commands (dired dired-jump)
-;   :bind (("C-x C-j" . dired-jump))
-;   :custom ((dired-listing-switches "-agho --group-directories-first"))
-;   :config
-;   (evil-collection-define-key 'normal 'dired-mode-map
-;     "h" 'dired-single-up-directory
-;     "-" 'dired-single-up-directory
-;     "l" 'dired-single-buffer
-;     "o" 'dired-single-buffer))
 
 ;; Org
 (map! :leader
@@ -98,59 +118,40 @@
 
 ;; Org Configuration
 (defun org-mode-setup ()
-  (org-indent-mode)
-  (variable-pitch-mode 1)
   (auto-fill-mode 0)
+  (variable-pitch-mode 1)
   (visual-line-mode 1)
-  (setq evil-auto-indent nil)
-  (setq org-image-actual-width 600))
+  (global-org-modern-mode)
+  (setq org-hide-emphasis-markers t
+        org-ellipsis " ▾"
+        org-hide-emphasis-markers t
+        org-auto-align-tags nil
+        org-tags-column 0
+        org-special-ctrl-a/e t
+        org-insert-heading-respect-content t
+
+        ;; Org styling, hide markup etc.
+        org-hide-emphasis-markers t
+        org-pretty-entities t
+        org-agenda-tags-column 0
+
+        evil-auto-indent nil
+        org-image-actual-width 600
+
+        org-modern-fold-stars
+        '(("◉" . "◉")
+          ("○" . "○")
+          ("●" . "●")
+          ("○" . "○")
+          ("●" . "●"))))
 
 (use-package! org
-  :hook (org-mode . org-mode-setup)
-  :config
-  (setq org-ellipsis " ▾"
-        org-hide-emphasis-markers t))
-
-(use-package! org-bullets
-  :after org
-  :hook (org-mode . org-bullets-mode)
-  :custom
-  (org-bullets-bullet-list '("◉" "○" "●" "○" "●" "○" "●")))
+  :hook (org-mode . org-mode-setup))
 
 ;; Replace list hyphen with dot
 (font-lock-add-keywords 'org-mode
                         '(("^ *\\([-]\\) "
-                          (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
-
-(dolist (face '((org-level-1 . 1.2)
-                (org-level-2 . 1.1)
-                (org-level-3 . 1.05)
-                (org-level-4 . 1.0)
-                (org-level-5 . 1.1)
-                (org-level-6 . 1.1)
-                (org-level-7 . 1.1)
-                (org-level-8 . 1.1))))
-
-;; Make sure org-indent face is available
-;; (require 'org-indent)
-
-;; Ensure that anything that should be fixed-pitch in Org files appears that way
-(with-eval-after-load 'org-faces
-  (set-face-attribute 'org-block nil :foreground nil :inherit 'fixed-pitch)
-  (set-face-attribute 'org-code nil   :inherit '(shadow fixed-pitch))
-  ;; (set-face-attribute 'org-indent nil :inherit '(org-hide fixed-pitch))
-  (set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))
-  (set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
-  (set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
-  (set-face-attribute 'org-checkbox nil :inherit 'fixed-pitch))
-
-(defun org-mode-visual-fill ()
-  (setq visual-fill-column-width 200
-        visual-fill-column-center-text t)
-  (visual-fill-column-mode 1))
-
-(use-package visual-fill-column
-  :hook (org-mode . org-mode-visual-fill))
+                           (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
 
 ;; Org Roam
 (use-package org-roam
@@ -158,12 +159,12 @@
   :init
   (setq org-roam-v2-ack t)
   :custom
-  (org-roam-directory (file-truename "~/git/roam"))
-  (org-id-locations-file (file-truename "~/git/roam/.orgids"))
+  (org-roam-directory (file-truename "~/git/org"))
+  (org-id-locations-file (file-truename "~/git/org/.orgids"))
   (org-roam-completion-everywhere t)
   (org-roam-dailies-capture-templates
-    '(("d" "default" entry "* %<%I:%M %p>: %?"
-       :if-new (file+head "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n"))))
+   '(("d" "default" entry "* %<%I:%M %p>: %?"
+      :if-new (file+head "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n"))))
   :bind (("C-c n l" . org-roam-buffer-toggle)
          ("C-c n f" . org-roam-node-find)
          ("C-c n i" . org-roam-node-insert)
@@ -174,19 +175,19 @@
 
 ;; Org Roam Graph
 (use-package! websocket
-    :after org-roam)
+  :after org-roam)
 
 (use-package! org-roam-ui
-    :after org-roam ;; or :after org
-;;         normally we'd recommend hooking orui after org-roam, but since org-roam does not have
-;;         a hookable mode anymore, you're advised to pick something yourself
-;;         if you don't care about startup time, use
-;;  :hook (after-init . org-roam-ui-mode)
-    :config
-    (setq org-roam-ui-sync-theme t
-          org-roam-ui-follow t
-          org-roam-ui-update-on-save t
-          org-roam-ui-open-on-start t))
+  :after org-roam ;; or :after org
+  ;;         normally we'd recommend hooking orui after org-roam, but since org-roam does not have
+  ;;         a hookable mode anymore, you're advised to pick something yourself
+  ;;         if you don't care about startup time, use
+  ;;  :hook (after-init . org-roam-ui-mode)
+  :config
+  (setq org-roam-ui-sync-theme t
+        org-roam-ui-follow t
+        org-roam-ui-update-on-save t
+        org-roam-ui-open-on-start t))
 
 ;; Org Capture
 
@@ -194,8 +195,16 @@
 (defun my/org-roam-capture-inbox ()
   (interactive)
   (org-roam-capture- :node (org-roam-node-create)
-                     :templates '(("i" "Inbox" plain "* TODO %<%Y-%m-%d>: %?"
-                                  :if-new (file+head "inbox.org" "#+title: Inbox\n")))))
+                     :templates '(("i" "Inbox" plain "* TODO %?\n:PROPERTIES:\n:DATE_ADDED: %t\n:END:"
+                                   :if-new (file "00_GTD/inbox.org")
+                                   :empty-lines-before 1)
+                                  ("w" "Work" plain "* TODO %? :@work:\n:PROPERTIES:\n:DATE_ADDED: %t\n:END:"
+                                   :if-new (file "00_GTD/inbox.org")
+                                   :empty-lines-before 1)
+                                  ("p" "Project" plain "* PROJ %? [%]\n:PROPERTIES:\n:ORDERED: t\n:DATE_ADDED: %t\n:END:\n** TODO ..."
+                                   :if-new (file "00_GTD/projects.org")
+                                   :empty-lines-before 1))))
+
 (map! :leader
       :desc "org-roam-gtd-inbox"
       "n r c" #'my/org-roam-capture-inbox)
@@ -214,7 +223,7 @@
   (select-frame-by-name "capture")
   (cl-letf (((symbol-function 'switch-to-buffer-other-window) #'switch-to-buffer))
     (condition-case err
-      (my/org-roam-capture-inbox)
+        (my/org-roam-capture-inbox)
       ;; "q" signals (error "Abort") in `org-capture'
       ;; delete the newly created frame in this scenario.
       (user-error (when (string= (cadr err) "Abort")
@@ -222,18 +231,63 @@
   (delete-other-windows)
   )
 
+;; Org refile
+(setq org-refile-targets '((("~/git/org/00_GTD/archive.org"
+                             "~/git/org/00_GTD/main.org"
+                             "~/git/org/00_GTD/projects.org") :maxlevel . 2)))
+
+;; Org refile to top of headings
+(setq org-reverse-note-order t)
+
+;; Open GTD files
+(map! :leader
+      :prefix ("o g" . "GTD files")
+      :desc "Inbox"
+      "i" (lambda () (interactive) (find-file "~/git/org/00_GTD/inbox.org"))
+      :desc "Mobile inbox"
+      "I" (lambda () (interactive) (find-file "~/git/org/00_GTD/inbox-mobile.org"))
+      :desc "Main"
+      "m" (lambda () (interactive) (find-file "~/git/org/00_GTD/main.org"))
+      :desc "Projects"
+      "p" (lambda () (interactive) (find-file "~/git/org/00_GTD/projects.org"))
+      :desc "Logs"
+      ;; INFO: Soft link the current file to the latest log file:
+      ;; $ ln -s 2025MM-logs.org current
+      "l" (lambda () (interactive) (find-file "~/git/org/01_Logs/current")))
+
+(setq org-duration-format 'h:mm)
+
 ;; GTD Agenda View
 (setq org-agenda-custom-commands
-'(("g" "GTD Tasks"
-	((tags-todo
-	  "Next"
-	  ((org-agenda-files '("~/git/roam/next.org"))
-	   (org-agenda-overriding-header "Next")))
-	 (tags-todo
-	  "Inbox"
-	  ((org-agenda-files '("~/git/roam/inbox.org"))
-	   (org-agenda-overriding-header "Inbox")))
-	 (org-todo-list)))))
+      '(("g" "GTD Tasks"
+         ((tags-todo
+           "next"
+           ((org-agenda-files '("~/git/org/00_GTD/next.org"))
+            (org-agenda-overriding-header "Next")))
+          (tags-todo
+           "inbox"
+           ((org-agenda-files '("~/git/org/00_GTD/inbox.org"))
+            (org-agenda-overriding-header "Inbox")))
+          (org-todo-list)))))
+
+
+(setq org-tag-alist
+      '(;; Places
+        ("@home" . ?H)
+        ("@work" . ?W)
+
+        ;; Devices
+        ("@computer" . ?C)
+        ("@phone" . ?P)
+
+        ;; Activities
+        ("@planning" . ?n)
+        ("@programming" . ?p)
+        ("@writing" . ?w)
+        ("@creative" . ?c)
+        ("@email" . ?e)
+        ("@calls" . ?a)
+        ("@errands" . ?r)))
 
 ;; Org Presentations
 (defun presentation-setup ()
@@ -247,8 +301,8 @@
   (flyspell-mode)
 
   ;; Scale the text.  The next line is for basic scaling:
-  ; (setq text-scale-mode-amount 3)
-  ; (text-scale-mode 1)
+                                        ; (setq text-scale-mode-amount 3)
+                                        ; (text-scale-mode 1)
 
 
   ;; This option is more advanced, allows you to scale other faces too
@@ -266,7 +320,7 @@
   (flyspell-mode)
 
   ;; Turn off text scale mode (or use the next line if you didn't use text-scale-mode)
-  ; (text-scale-mode 0)
+                                        ; (text-scale-mode 0)
 
   ;; If you use face-remapping-alist, this clears the scaling:
   (setq-local face-remapping-alist '((default variable-pitch default))))
