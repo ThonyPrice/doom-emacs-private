@@ -19,6 +19,13 @@
 ;; See: https://github.com/magit/magit/issues/4209#issuecomment-1698136735
 (setenv "TERM" "xterm-kitty")
 
+(with-eval-after-load 'browse-at-remote
+
+  (add-to-list 'browse-at-remote-remote-type-regexps
+               '(:host "github\\.com-thony-abclabs$" :type "github")
+               '(:host "github\\.com-thony-personal$" :type "github")))
+
+
 ;; Copilot setup - Accept completion from copilot, to company
 (use-package! copilot
   :hook (prog-mode . copilot-mode)
@@ -27,6 +34,10 @@
               ("TAB" . 'copilot-accept-completion)
               ("C-TAB" . 'copilot-accept-completion-by-word)
               ("C-<tab>" . 'copilot-accept-completion-by-word)))
+;; Don’t auto-enable until the server is installed
+(after! copilot
+  (remove-hook 'prog-mode-hook #'copilot-mode))
+;; Later, re-enable with: (add-hook 'prog-mode-hook #'copilot-mode)
 
 ;; doom exposes five (optional) variables for controlling fonts in Doom. Here
 ;; are the three important ones:
@@ -36,8 +47,8 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "FiraCode Nerd Font Mono" :size 14)
-      doom-variable-pitch-font (font-spec :family "FiraCode Nerd Font Mono" :size 14)
+(setq doom-font (font-spec :family "FiraCode Nerd Font Mono" :size 13)
+      doom-variable-pitch-font (font-spec :family "FiraCode Nerd Font Mono" :size 13)
       doom-big-font (font-spec :family "FiraCode Nerd Font Mono" :size 24))
 (after! doom-themes
   (setq doom-themes-enable-bold t
@@ -87,10 +98,6 @@
 ;; Projectile
 (setq projectile-switch-project-action #'projectile-dired)
 (setq projectile-project-search-path '(("~/git" . 1)))
-
-;; Set up code review tooling
-(setq code-review-fill-column 80)
-(setq code-review-auth-login-marker 'forge)
 
 ;; This determines the style of line numbers in effect. If set to `nil', line
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
@@ -159,12 +166,9 @@
   :init
   (setq org-roam-v2-ack t)
   :custom
-  (org-roam-directory (file-truename "~/git/org"))
+  (org-roam-directory (file-truename "~/git/org/roam"))
   (org-id-locations-file (file-truename "~/git/org/.orgids"))
   (org-roam-completion-everywhere t)
-  (org-roam-dailies-capture-templates
-   '(("d" "default" entry "* %<%I:%M %p>: %?"
-      :if-new (file+head "%<%Y-%m-%d>.org" "#+title: %<%Y-%m-%d>\n"))))
   :bind (("C-c n l" . org-roam-buffer-toggle)
          ("C-c n f" . org-roam-node-find)
          ("C-c n i" . org-roam-node-insert)
@@ -189,20 +193,47 @@
         org-roam-ui-update-on-save t
         org-roam-ui-open-on-start t))
 
+;; Add created property
+(defvar org-created-property-name "CREATED"
+  "The name of the org-mode property that stores the creation date of the entry")
+
+(defun my/org-set-created-property (&optional active NAME)
+  "Set a property on the entry giving the creation time.
+
+  By default the property is called CREATED. If given the `NAME'
+  argument will be used instead. If the property already exists, it
+  will not be modified."
+  (interactive)
+  (let* ((created (or NAME org-created-property-name))
+         (fmt (if active "<%s>" "[%s]"))
+         (now  (format fmt (format-time-string "%Y-%m-%d %a %H:%M"))))
+    (unless (org-entry-get (point) created nil)
+      (org-set-property created now))))
+
+(add-hook 'org-capture-before-finalize-hook #'my/org-set-created-property)
+(add-hook 'org-insert-todo-heading #'my/org-set-created-property)
+(add-hook 'org-insert-todo-heading-respect-content #'my/org-set-created-property)
+(add-hook 'org-insert-todo-subheading #'my/org-set-created-property)
+
 ;; Org Capture
+(setq org-capture-templates
+      `(("g" "GTD | Tasks / Projects")
+        ("gi" "Inbox" entry (file "~/git/org/gtd/inbox.org")
+         "* TODO %?\n:PROPERTIES:\n:DATE_ADDED: %t\n:END:"
+         :empty-lines-before 1)
+        ("gw" "Work" entry (file "gtd/inbox.org")
+         "* TODO %? :@work:\n:PROPERTIES:\n:DATE_ADDED: %t\n:END:"
+         :empty-lines-before 1)
+        ("gp" "Project" entry (file "gtd/projects.org")
+         "* PROJ [%] %?\n:PROPERTIES:\n:ORDERED: t\n:DATE_ADDED: %t\n:END:\n** TODO ..."
+         :empty-lines-before 1)))
 
 ;; Capture to Inbox
 (defun my/org-roam-capture-inbox ()
   (interactive)
   (org-roam-capture- :node (org-roam-node-create)
-                     :templates '(("i" "Inbox" plain "* TODO %?\n:PROPERTIES:\n:DATE_ADDED: %t\n:END:"
-                                   :if-new (file "00_GTD/inbox.org")
-                                   :empty-lines-before 1)
-                                  ("w" "Work" plain "* TODO %? :@work:\n:PROPERTIES:\n:DATE_ADDED: %t\n:END:"
-                                   :if-new (file "00_GTD/inbox.org")
-                                   :empty-lines-before 1)
-                                  ("p" "Project" plain "* PROJ %? [%]\n:PROPERTIES:\n:ORDERED: t\n:DATE_ADDED: %t\n:END:\n** TODO ..."
-                                   :if-new (file "00_GTD/projects.org")
+                     :templates '(("i" "Slipbox" plain "* %?\n:PROPERTIES:\n:DATE_ADDED: %t\n:END:"
+                                   :if-new (file "slipbox.org")
                                    :empty-lines-before 1))))
 
 (map! :leader
@@ -232,9 +263,9 @@
   )
 
 ;; Org refile
-(setq org-refile-targets '((("~/git/org/00_GTD/archive.org"
-                             "~/git/org/00_GTD/main.org"
-                             "~/git/org/00_GTD/projects.org") :maxlevel . 2)))
+(setq org-refile-targets '((("~/git/org/gtd/archive.org"
+                             "~/git/org/gtd/main.org"
+                             "~/git/org/gtd/projects.org") :maxlevel . 2)))
 
 ;; Org refile to top of headings
 (setq org-reverse-note-order t)
@@ -243,32 +274,60 @@
 (map! :leader
       :prefix ("o g" . "GTD files")
       :desc "Inbox"
-      "i" (lambda () (interactive) (find-file "~/git/org/00_GTD/inbox.org"))
+      "i" (lambda () (interactive) (find-file "~/git/org/gtd/inbox.org"))
       :desc "Mobile inbox"
-      "I" (lambda () (interactive) (find-file "~/git/org/00_GTD/inbox-mobile.org"))
+      "I" (lambda () (interactive) (find-file "~/git/org/gtd/inbox-mobile.org"))
       :desc "Main"
-      "m" (lambda () (interactive) (find-file "~/git/org/00_GTD/main.org"))
+      "m" (lambda () (interactive) (find-file "~/git/org/gtd/main.org"))
       :desc "Projects"
-      "p" (lambda () (interactive) (find-file "~/git/org/00_GTD/projects.org"))
+      "p" (lambda () (interactive) (find-file "~/git/org/gtd/projects.org"))
       :desc "Logs"
       ;; INFO: Soft link the current file to the latest log file:
       ;; $ ln -s 2025MM-logs.org current
-      "l" (lambda () (interactive) (find-file "~/git/org/01_Logs/current")))
+      "l" (lambda () (interactive) (find-file "~/git/org/logs/current"))
+      :desc "Logs (Regnora)"
+      "r" (lambda () (interactive) (find-file "~/git/org/logs/regnora-logs.org")))
 
 (setq org-duration-format 'h:mm)
 
 ;; GTD Agenda View
 (setq org-agenda-custom-commands
       '(("g" "GTD Tasks"
-         ((tags-todo
-           "next"
-           ((org-agenda-files '("~/git/org/00_GTD/next.org"))
-            (org-agenda-overriding-header "Next")))
+         ((todo
+           ""
+           ((org-agenda-overriding-header "Next")))
           (tags-todo
+           "Upcoming"
+           ((org-agenda-overriding-header "Upcoming")))
+          (org-todo-list)))
+        ("r" "GTD - Review Agenda"
+         ((tags-todo
            "inbox"
-           ((org-agenda-files '("~/git/org/00_GTD/inbox.org"))
+           ((org-agenda-files
+             '("~/git/org/gtd/inbox.org"
+               "~/git/org/gtd/inbox-mobile.org"))
             (org-agenda-overriding-header "Inbox")))
-          (org-todo-list)))))
+          (tags
+           "@work/TODO"
+           ((org-agenda-files (directory-files-recursively "~/git/org/" "\\.org$"))
+            (org-agenda-overriding-header "Next | Unscheduled")
+            (org-agenda-skip-function '(org-agenda-skip-entry-if 'scheduled))))
+          (tags
+           "@work/TODO"
+           (
+            (org-agenda-overriding-header "All | Unscheduled")
+            (org-agenda-skip-function '(org-agenda-skip-entry-if 'scheduled))))
+          ))))
+
+(use-package org-clock-convenience
+  :ensure t
+  :after org
+  :bind (:map org-agenda-mode-map
+              ("<S-right>" . org-agenda-log-mode)
+              ("<S-up>" . org-clock-convenience-timestamp-up)
+              ("<S-down>" . org-clock-convenience-timestamp-down)
+              ("ö" . org-clock-convenience-fill-gap)
+              ("ä" . org-clock-convenience-fill-gap-both)))
 
 
 (setq org-tag-alist
@@ -370,3 +429,68 @@
 (map! :leader
       :desc "org-roam-export-all"
       "n h e" #'my/org-roam-export-all)
+
+;; LLMs
+(use-package! gptel
+  :config
+  (setq! gptel-api-key "***")
+  (gptel-make-anthropic "Claude" :stream t :key gptel-api-key))
+
+;; Install and configure claude-code.el
+(use-package! claude-code
+  :commands (claude-code claude-code-transient claude-code-send-region)
+  :init
+  ;; Use vterm backend (defaults to EAT otherwise)
+  (setq claude-code-terminal-backend 'vterm)   ; use vterm backend
+
+  ;; provides `define-repeat-map`
+  (require 'repeat) 
+
+  ;; optional: how newlines behave in Claude input (RET sends, S-RET adds newline)
+  (setq claude-code-newline-keybinding-style 'shift-return)
+  :config
+  ;; Optional IDE integration with Monet
+  (add-hook 'claude-code-process-environment-functions #'monet-start-server-function)
+  (monet-mode 1)
+
+  ;; Minor mode enables command map + helpers
+  (claude-code-mode)
+
+  ;; ===== Doom/Evil keybindings =====
+  ;; Leader-based bindings (mnemonic: o = “AI/Claude”)
+  (map! :leader
+        :desc "Claude: menu (transient)" "o m" #'claude-code-transient
+        :desc "Claude: start"             "o c" #'claude-code
+        :desc "Claude: continue last"     "o C" #'claude-code-continue
+        :desc "Claude: start in dir"      "o d" #'claude-code-start-in-directory
+        :desc "Claude: send command"      "o s" #'claude-code-send-command
+        :desc "Claude: send w/ context"   "o x" #'claude-code-send-command-with-context
+        :desc "Claude: send region"       "o r" #'claude-code-send-region
+        :desc "Claude: send buffer file"  "o o" #'claude-code-send-buffer-file
+        :desc "Claude: fix error at point" "o e" #'claude-code-fix-error-at-point
+        :desc "Claude: toggle window"     "o t" #'claude-code-toggle
+        :desc "Claude: switch to buffer"  "o b" #'claude-code-switch-to-buffer
+        :desc "Claude: kill session"      "o k" #'claude-code-kill)
+
+  ;; Quick “Yes/No/1/2/3” replies without leaving your current buffer
+  (map! :leader
+        :desc "Claude: Yes (RET)" "o y" #'claude-code-send-return
+        :desc "Claude: No (ESC)"  "o n" #'claude-code-send-escape
+        :desc "Claude: choose 1"  "o 1" #'claude-code-send-1
+        :desc "Claude: choose 2"  "o 2" #'claude-code-send-2
+        :desc "Claude: choose 3"  "o 3" #'claude-code-send-3)
+
+  ;; Optional: localleader in prog/text modes for frequently used senders
+  (map! :map prog-mode-map
+        :localleader
+        :desc "Claude: send region/buffer" "r" #'claude-code-send-region
+        :desc "Claude: send this file"     "o" #'claude-code-send-buffer-file)
+  (map! :map text-mode-map
+        :localleader
+        :desc "Claude: send region/buffer" "r" #'claude-code-send-region)
+
+  ;; Configure notifications using the `alert` package
+  ;; First, ensure the `alert` package is installed.
+  ;; Then, set the notification function to use the alert package's function.
+  (setq claude-code-notification-function #'alert)
+  )
