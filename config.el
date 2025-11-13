@@ -13,17 +13,11 @@
                          ("org" . "https://orgmode.org/elpa/")
                          ("elpa" . "https://elpa.gnu.org/packages/")))
 
-(add-to-list 'exec-path "/Users/thony/.nix-profile/bin")
+; (add-to-list 'exec-path "/Users/thony/.nix-profile/bin")
 
 ;; Aid Magit knowing what terminal to run git in,
 ;; See: https://github.com/magit/magit/issues/4209#issuecomment-1698136735
-(setenv "TERM" "xterm-kitty")
-
-(with-eval-after-load 'browse-at-remote
-
-  (add-to-list 'browse-at-remote-remote-type-regexps
-               '(:host "github\\.com-thony-abclabs$" :type "github")
-               '(:host "github\\.com-thony-personal$" :type "github")))
+; (setenv "TERM" "xterm-kitty")
 
 
 ;; Copilot setup - Accept completion from copilot, to company
@@ -47,9 +41,9 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "FiraCode Nerd Font Mono" :size 13)
-      doom-variable-pitch-font (font-spec :family "FiraCode Nerd Font Mono" :size 13)
-      doom-big-font (font-spec :family "FiraCode Nerd Font Mono" :size 24))
+;; (setq doom-font (font-spec :family "FiraCode Nerd Font Mono" :size 13)
+      ;; doom-variable-pitch-font (font-spec :family "FiraCode Nerd Font Mono" :size 13)
+      ;; doom-big-font (font-spec :family "FiraCode Nerd Font Mono" :size 24))
 (after! doom-themes
   (setq doom-themes-enable-bold t
         doom-themes-enable-italic t))
